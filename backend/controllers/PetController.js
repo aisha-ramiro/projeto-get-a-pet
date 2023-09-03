@@ -253,4 +253,83 @@ module.exports = class PetController {
 
   }
 
+  //schedule a visit
+  static async schedule(req, res) {
+
+    const id = req.params.id
+
+    //check if pet exists
+    const pet = await Pet.findOne({_id: id})
+
+     if(!pet) {
+       res.status(404).json({message: 'Pet não encontrado'})
+       return
+     }
+
+    //check if user registered the pet
+    const token = getToken(req)
+    const user = await getUserByToken(token)
+
+    if(pet.user._id.equals(user._id)) {
+      res.status(422).json({message: 'Você não pode agendar uma visita com seu próprio pet'})
+      return
+    }
+
+    //check if user has already scheduled a visit
+    if(pet.adopter) {
+      if(pet.adopter._id.equals(user._id)) {
+        res.status(422).json({message: 'Você já agendou uma visita para esse pet'})
+        return
+      }
+    }
+
+    // add user to pet
+    pet.adopter = {
+      _id: user._id,
+      name: user.name,
+      image: user.image
+    }
+
+    await Pet.findByIdAndUpdate(id, pet)
+
+    res.status(200).json({
+      message: `A vista foi agendada com sucesso! Entre em contato com ${pet.user.name}, pelo telefone ${pet.user.phone}`
+    })
+
+
+  }
+
+  static async concludeAdoption (req, res) {
+
+    const id = req.params.id 
+
+    //check if pet exists
+    const pet = await Pet.findOne({_id: id})
+
+     if(!pet) {
+       res.status(404).json({message: 'Pet não encontrado'})
+       return
+     }
+
+
+    //check if logged in user registered the pet
+    const token = getToken(req)
+    const user = await getUserByToken(token)
+
+    if (pet.user._id.toString() !== user._id.toString()) {
+      res.status(422).json({ message: 'Houve um problema em processar a sua solicitação.' })
+      return
+    }
+
+    pet.available = false
+
+    await Pet.findByIdAndUpdate(id, pet)
+
+    res.status(200).json({
+      message:"Parabéns, o ciclo de adoção foi finalizado com sucesso!"
+    })
+    
+
+  }
+
 }
